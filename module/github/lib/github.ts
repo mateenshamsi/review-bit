@@ -4,28 +4,67 @@ import { headers } from "next/headers";
 import {Octokit} from "octokit";
 import { string } from "zod";
 
-export const getGitHubClient = async () => {
-    const session = await auth.api.getSession({
-        headers: await headers()
-    });
-    if (!session) {
-        throw new Error("No active session found");
-    }
-    const user = await prisma.account.findUnique({
-        where: { id: session.user.id, providerId: "github" }
-    });
-    if (!user || !user?.accessToken) {
-        throw new Error("GitHub access token not found for the user");
-    }
-    const octokit = new Octokit({
-        auth: user.accessToken
-    });
-    return octokit;
+export const getGitHubToken = async (reqHeaders:Headers) => {
+  const session = await auth.api.getSession({
+    headers: reqHeaders,
+  });
+
+  if (!session?.user?.id) {
+    return null;
+  }
+
+  const account = await prisma.account.findFirst({
+    where: {
+      userId: session.user.id,
+      providerId: "github",
+    },
+    select: {
+      accessToken: true,
+    },
+  });
+
+  console.log("🔍 GitHub account row:", account);
+
+  return account?.accessToken ?? null;
 };
+
+
+
+type ContributionCalendar = {
+  totalContributions: number;
+  weeks: {
+    contributionDays: {
+      date: string;
+      contributionCount: number;
+      color: string;
+    }[];
+  }[];
+};
+
+type GithubContributionResponse = {
+  user: {
+    contributionsCollection: {
+      contributionCalendar: ContributionCalendar;
+    };
+  };
+};
+
 export const getGithubContribution = async (
-  octokit: Octokit,
+  token: string,
   username: string
-) => {
+): Promise<ContributionCalendar> => {
+  console.log("🟡 Fetching GitHub contributions", { username });
+
+  if (!token) {
+    throw new Error("GitHub token missing");
+  }
+
+  if (!username) {
+    throw new Error("GitHub username missing");
+  }
+
+  const octokit = new Octokit({ auth: token });
+
   const query = `
     query ($username: String!) {
       user(login: $username) {
@@ -46,16 +85,16 @@ export const getGithubContribution = async (
   `;
 
   try {
-    const response = await octokit.graphql<{
-      user: {
-        contributionsCollection: {
-          contributionCalendar: any;
-        };
-      };
-    }>(query, { username });
+    const response = await octokit.graphql<GithubContributionResponse>(
+      query,
+      { username }
+    );
+
+    console.log("🟢 Contributions fetched");
 
     return response.user.contributionsCollection.contributionCalendar;
-  } catch {
-    throw new Error("Failed to fetch contributions from GitHub");
+  } catch (error) {
+    console.error("💥 GitHub contribution fetch failed:", error);
+    throw error;
   }
 };
