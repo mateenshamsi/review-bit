@@ -1,0 +1,17 @@
+"use client"
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { fetchRepos } from "../actions";
+
+export const useRepository = () =>{
+  return useInfiniteQuery({
+    queryKey: ["repositories"],
+    queryFn: async ({ pageParam = 1 }) => {
+      return await fetchRepos(pageParam, 10);
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.length < 10) return undefined;
+      return allPages.length + 1;
+    },
+    initialPageParam: 1,
+  });
+};

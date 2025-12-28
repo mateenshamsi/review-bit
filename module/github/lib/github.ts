@@ -98,3 +98,17 @@ export const getGithubContribution = async (
     throw error;
   }
 };
+
+export const getGithubRepos = async(page:number=1,perPage:number=10)=>{
+  const reqHeaders = await headers()
+  const token = await getGitHubToken(reqHeaders) 
+  const octokit = new Octokit({ auth: token })
+  const data = await octokit.rest.repos.listForAuthenticatedUser({
+    sort:"updated",
+    direction:"desc",
+    visibility:"public",
+    per_page:perPage,
+    page:page
+  })
+  return data 
+}

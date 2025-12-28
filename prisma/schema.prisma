@@ -22,7 +22,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
-
+  repositories  Repository[]
   @@map("user")
 }
 
@@ -72,3 +72,22 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+model Repository{ 
+  id String @id @default(cuid())
+  githubId BigInt @unique
+  name String 
+  owner String 
+  fullname String 
+  url String 
+  userId String 
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  createdAt DateTime @default(now()) 
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+  @@map("repository") 
+}
+
+
+
+

@@ -19,12 +19,19 @@ export const getContributionStats = async()=>{
         } 
         const calendar = await getGithubContribution(token,user.login) 
         if(!calendar) return null ; 
-         
+    const contributions = calendar.weeks.flatMap((week: any) =>
+      week.contributionDays.map((day: any) => ({
+      date: day.date,
+      count: day.contributionCount,
+      level:Math.min(4,Math.floor(day.contributionCount/3)) 
+      }))
+    )
 
-    }
-    catch(err){
-
-    }
+    return { status: "SUCCESS", contributions ,totalContributions:calendar.totalContributions}
+  } catch (err) {
+    console.error("Error fetching contribution stats",err) 
+    return { status: "ERROR", message: "Failed to load contributions" }
+  }
 }
 export const getDashboardStats = async () => {
   try {
