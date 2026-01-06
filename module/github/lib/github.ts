@@ -112,3 +112,44 @@ export const getGithubRepos = async(page:number=1,perPage:number=10)=>{
   })
   return data 
 }
+
+export const deleteWebhook = async (repo:string,owner:string)=>{
+  const token = await getGitHubToken(await headers())
+  const octokit = new Octokit({ auth: token })
+  const webhookUrl = process.env.NEXT_PUBLIC_APP_BASE_URL + '/api/webhooks/github'
+  try {
+    const { data: hooks } = await octokit.rest.repos.listWebhooks({
+      owner,
+      repo,
+    });
+
+    const hookToDelete = hooks.find((hook) => hook.config.url === webhookUrl);
+    if (hookToDelete) {
+      await octokit.rest.repos.deleteWebhook({
+        owner,
+        repo,
+        hook_id: hookToDelete.id,
+      });
+      console.log(` Deleted webhook for ${owner}/${repo}`);
+    } else {
+      console.log(` No matching webhook found for ${owner}/${repo}`);
+    }
+  } catch (error) {
+    console.error(` Failed to delete webhook for ${owner}/${repo}:`, error)
+    };
+}
+
+export async function getConnectedRepos(){
+  try{
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user?.id) {
+      return [];
+    }
+    
+  }
+  catch(error){
+    console.error(" Failed to get connected repos:", error)
+  }
+}
