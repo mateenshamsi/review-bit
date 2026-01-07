@@ -1,5 +1,7 @@
+'use server'
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import {Octokit} from "octokit";
 import { string } from "zod";
@@ -147,9 +149,88 @@ export async function getConnectedRepos(){
     if (!session?.user?.id) {
       return [];
     }
-    
+    const repos = await prisma.repository.findMany({
+      where:{
+        userId:session.user.id
+      },
+      select:{ 
+        id:true, 
+        name:true, 
+      },
+      orderBy:{
+        createdAt:"desc"
+      }
+    })
+    return repos
   }
   catch(error){
     console.error(" Failed to get connected repos:", error)
   }
+}
+
+export async function disconnectRepo(repoId:string){
+  try{
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if(!session?.user?.id){
+      throw new Error("User not authenticated")
+    }
+    const repo = await prisma.repository.findUnique({
+      where:{
+        id:repoId,
+        userId:session.user.id
+      }
+    })
+    if(!repo) 
+    {
+      throw new Error("Repository not found or not authorized") 
+    }
+    await deleteWebhook(repo.name, repo.owner)
+    const result = await prisma.repository.delete({
+      where:{
+        id:repoId,
+        userId:session.user.id
+      }
+    })
+    revalidatePath('/dashboard/settings','page') 
+    revalidatePath('/dashboard/repository','page')
+    return { success:true, message:"Repository disconnected successfully"}
+  } 
+  catch(error){
+    console.error(" Failed to disconnect repo:",error)
+    return { success:false, message:"Repository failed to disconnect successfully"}
+    
+  }
+}
+
+export async function disconnectAllRepos(){
+  try{
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if(!session?.user?.id){
+      throw new Error("User not authenticated")
+    }
+    const repos = await prisma.repository.findMany({
+      where:{
+        userId:session.user.id
+      }
+    })
+    await Promise.all(repos.map(async(repo)=>{
+      await deleteWebhook(repo.name, repo.owner)
+    }))
+    const result = await prisma.repository.deleteMany({
+      where:{
+        userId:session.user.id  
+      }
+    })
+    revalidatePath('/dashboard/settings')
+    revalidatePath('/dashboard/repository')
+    return { success:true, message:"All repositories disconnected successfully"}
+  } 
+  catch(error){
+    console.error(" Failed to disconnect all repos:",error)
+    return { success:false, message:"Failed to disconnect all repositories successfully"}
+  } 
 }

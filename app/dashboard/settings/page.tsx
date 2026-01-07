@@ -18,6 +18,7 @@ import {
   Laptop,
   CheckCircle2
 } from 'lucide-react'
+import RepositoryList from '@/module/settings/components/repository-list'
 
 function Settings() {
   return (
@@ -31,6 +32,7 @@ function Settings() {
       </div>
 
       <ProfileForm />
+      <RepositoryList />
     </div>
   )
 }
